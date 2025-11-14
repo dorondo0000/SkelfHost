@@ -1,0 +1,69 @@
+options:
+    id: test
+    uuid: 0-0-0-0-1
+
+import:
+    java.net.URI
+    java.nio.file.Paths
+    java.nio.file.Files
+    java.nio.file.FileSystems
+    java.util.HashMap
+    java.util.Map
+    java.util.stream.Stream
+    java.net.URL
+    java.io.BufferedReader
+    java.io.InputStreamReader
+
+on load:
+    set {-ip} to getIP()
+
+command ip:
+    permission: op
+    trigger:
+        send getIP() to player
+
+function getIP():: text:
+    return (new BufferedReader(new InputStreamReader((new URL("https://api.ipify.org")).openStream()))).readLine()
+
+command build:
+    permission: op
+    trigger:
+        create section with {_p} stored in {_section}:
+            set {_Dpth} to Paths.get("pack")
+            set {_Fzip} to Paths.get("plugins/SimpleWebServer/web/{@id}.zip")
+            if Files.exists({_Fzip}):
+                Files.delete({_Fzip})
+            set {_env} to new HashMap()
+            {_env}.put("create", "true")
+            set {_zfs} to FileSystems.newFileSystem(URI.create("jar:%{_Fzip}.toUri().toString().replace("\", "/")%"), {_env})
+            set {_rt} to {_zfs}.getPath("/")
+            loop ...Files.walk({_Dpth}):
+                set {_to} to {_rt}.resolve({_Dpth}.relativize(loop-value).toString())
+                if Files.isDirectory(loop-value) is true:
+                    Files.createDirectories({_to})
+                else:
+                    Files.copy(loop-value,{_to})
+            {_zfs}.close() 
+            set {-ip} to getIP()
+            send "%{-ip}%에서 빌드 완료" to {_p}
+            #send resource pack "http://%{-ip}%:8080/{@id}.zip" with uuid "{@uuid}" to all players
+        run section {_section} async with player
+        
+command /r [<player>]:
+    permission: op
+    trigger:
+        send resource pack "http://%{-ip}%:8080/{@id}.zip" with uuid "{@uuid}" to arg 1 ? all players
+
+command /dr [<text>]:
+    permission: op
+    trigger:
+        if arg is set:
+            set {리팩} to arg
+            send "리팩 등록 완료"
+        else:
+            delete {리팩}
+            send "리팩 삭제 완료"
+
+on join:
+    send the resource pack from {리팩} to player
+
